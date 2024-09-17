@@ -135,7 +135,6 @@ function drawPaddle (){
 
 }
 
-
 function drawBricks (){
     for (let c = 0; c < brickColumnCount; c++) {
         for ( let r = 0; r < brickRowCount; r++){
@@ -178,9 +177,9 @@ function drawBricks (){
 
 function drawUI() {
     ctx.fillText(`FPS: ${framesPerSec}`, 5, 10)
-  }
+}
 
-  function collisionDetection() {
+function collisionDetection() {
     for (let c = 0; c < brickColumnCount; c++) {
         for (let r = 0; r < brickRowCount; r++) {
             const currentBrick = bricks[c][r];
@@ -203,33 +202,90 @@ function drawUI() {
                 updateGameInfo(); // Actualiza la información en pantalla
 
                 // Aumentar la dificultad después de destruir un ladrillo
-                if (destroyedBricks % 5 === 0) { // Cada 5 ladrillos aumenta la dificultad
-                    dx *= 1.5; // Aumenta la velocidad de la pelota
-                    dy *= 1.5; 
-                    PADDLE_SENSITITIVITY *= 1.05; // Aumentar la sensibilidad del paddle
-                    console.log(`Paddle Speed Increased: ${PADDLE_SENSITITIVITY}`);
+                if (destroyedBricks % 10 === 0) { // Cada 5 ladrillos aumenta la dificultad
+                    dx *= 1.2; // Aumenta la velocidad de la pelota
+                    dy *= 1.2; 
+                    PADDLE_SENSITITIVITY *= 1.55; // Aumentar la sensibilidad del paddle
+                    console.log(`Paddle Speed Increased: ${PADDLE_SENSITITIVITY}`);                   
+                }         
 
-                   
-                }                
+                // Comprobar si todos los ladrillos fueron destruidos
+                checkForVictory(); // Llamada aquí       
             }
         }
     }
 }
 
+function checkForVictory() {
+    let allBricksDestroyed = true;
 
-function ballMovement (){
-    // rebotar las pelotas en los laterales
-    if (
-        x + dx > canvas.width - ballRadius || // pared derecha
-        x + dx <  ballRadius // pared izquierda
-    ){
-        dx = -dx
+    // Recorre todos los ladrillos para ver si aún queda alguno activo
+    for (let c = 0; c < brickColumnCount; c++) {
+        for (let r = 0; r < brickRowCount; r++) {
+            if (bricks[c][r].status === BRICK_STATUS.ACTIVE) {
+                allBricksDestroyed = false;
+                break;
+            }
+        }
     }
 
-    //rebotar en la parte de arriba
+    // Si todos los ladrillos están destruidos, muestra la alerta de victoria
+    if (allBricksDestroyed) {
+        showVictoryMessage(); // Mostrar mensaje de victoria y detener el juego
+    }
+}
 
-    if ( y + dy < ballRadius) {
-        dy = -dy;        
+function showVictoryMessage() {
+    gameOver = true; // Detener el juego
+
+    // Crear enlace para abrir el gestor de correos
+    const mailtoLink = "mailto:danielh.fsdev@gmail.com?subject=Victoria en Arkanoid&body=¡He ganado el juego! Aquí está la captura de pantalla adjunta.";
+    
+    // Mostrar mensaje de victoria
+    const message = `
+        ¡Enhorabuena, has ganado el juego!
+        Haz una captura de pantalla de tu victoria y envíala haciendo clic en el enlace.
+        <a href="${mailtoLink}" target="_blank">Enviar correo</a>
+        <br><br>
+        <button id="continue-btn">Continuar</button>
+    `;
+    
+    // Mostrar alerta con HTML personalizado
+    const victoryAlert = document.createElement('div');
+    victoryAlert.innerHTML = message;
+    victoryAlert.style.cssText = `
+        position: fixed;
+        top: 30%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    `;
+    
+    document.body.appendChild(victoryAlert);
+
+    // Añadir funcionalidad al botón para reiniciar el juego
+    document.getElementById('continue-btn').addEventListener('click', () => {
+        document.body.removeChild(victoryAlert);
+        document.location.reload(); // Reiniciar el juego
+    });
+}
+
+function ballMovement() {
+    // Rebotar las pelotas en los laterales
+    if (
+        x + dx > canvas.width - ballRadius || // pared derecha
+        x + dx < ballRadius // pared izquierda
+    ) {
+        dx = -dx;
+    }
+
+    // Rebotar en la parte de arriba
+    if (y + dy < ballRadius) {
+        dy = -dy;
     } else if (y + dy > paddLeY + paddleHeight) {
         lives--;
         updateGameInfo();
@@ -238,10 +294,9 @@ function ballMovement (){
             alert('Game Over');
             document.location.reload();
         } else {
-            resetGame(); // Restablecer el juego cuando la pelota cae pero aún hay vidas
+            resetGameAfterLifeLoss(); // Reiniciar el juego con la mitad de la velocidad
         }
     }
-
 
     // La pelota toca la paleta
     const isBallSameXAsPaddle =
@@ -256,9 +311,15 @@ function ballMovement (){
         const impactPoint = (x - paddLeX) / paddleWidth;
         const angle = (impactPoint - 0.5) * Math.PI / 3; // Ajusta el ángulo según el impacto
 
-        // Cambiar la dirección de la pelota
-        dx = 3 * Math.sin(angle);
-        dy = -3 * Math.cos(angle);
+        // Cambiar la dirección de la pelota, manteniendo una velocidad constante
+        const speed = Math.sqrt(dx * dx + dy * dy); // Obtener la velocidad actual
+        dx = speed * Math.sin(angle); // Actualizar dx
+        dy = -speed * Math.cos(angle); // Actualizar dy
+
+        // Asegúrate de que la pelota no se quede atrapada en el paddle
+        if (dy > 0) {
+            dy = -dy; // Asegúrate de que la pelota se mueva hacia arriba
+        }
     } else if (y + dy > canvas.height - ballRadius || y + dy > paddLeY + paddleHeight) {
         // Verificar si la pelota cae por debajo del canvas o de la paleta
         gameOver = true;
@@ -304,11 +365,30 @@ function paddleMovement (){
 
 }
 
-
-
 function cleanCanvas(){
 ctx.clearRect(0, 0, canvas.width, canvas.height)
 }
+
+// Variables para almacenar los valores iniciales
+const INITIAL_DX = -3;
+const INITIAL_DY = -3;
+const INITIAL_PADDLE_SENSITIVITY = 5;
+
+function resetGameAfterLifeLoss() {
+    // Restablecer posición de la pelota
+    x = canvas.width / 2;
+    y = canvas.height - 30;
+    
+    // Reducir la velocidad de la bola y la sensibilidad de la paleta a la mitad,
+    // pero asegurando que no bajen de los valores iniciales.
+    dx = Math.sign(dx) * Math.max(Math.abs(dx) * 0.5, Math.abs(INITIAL_DX));
+    dy = Math.sign(dy) * Math.max(Math.abs(dy) * 0.5, Math.abs(INITIAL_DY));
+    PADDLE_SENSITITIVITY = Math.max(PADDLE_SENSITITIVITY * 0.5, INITIAL_PADDLE_SENSITIVITY);
+
+    // Reiniciar la posición de la paleta
+    paddLeX = (canvas.width - paddleWidth) / 2;
+}
+
 
 // Función para reiniciar el juego
 function resetGame() {
@@ -320,6 +400,7 @@ function resetGame() {
 
     // Reiniciar la posición de la paleta
     paddleX = (canvas.width - paddleWidth) / 2;
+    PADDLE_SENSITITIVITY = 5
 }
 
 function iniEvents (){
@@ -345,7 +426,7 @@ function iniEvents (){
           leftPressed = false
         }
       }
-    }
+}
 
     // a que velocidad de fps queremos que renderice nuestro juego
      const fps = 60
@@ -399,6 +480,20 @@ function draw (){
 
     window.requestAnimationFrame(draw)
 }
+
+function simulateVictory() {
+    for (let c = 0; c < brickColumnCount; c++) {
+        for (let r = 0; r < brickRowCount; r++) {
+            bricks[c][r].status = BRICK_STATUS.DESTROYED; // Marcar todos los ladrillos como destruidos
+        }
+    }
+
+    // Llamar a la verificación de victoria
+    checkForVictory();
+}
+
+// Ejecutar la simulación de victoria inmediatamente después de inicializar el juego
+//simulateVictory();
 
 draw()
 iniEvents()
