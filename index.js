@@ -5,13 +5,41 @@
 const canvas = document.querySelector('canvas')
 const ctx =canvas.getContext('2d') //dibujado 2d
 
+
 const $sprite = document.querySelector('#sprite')
 const $bricks = document.querySelector('#bricks')
+const $borde = document.querySelector('#borde')
 
+
+// Ajuste del tamaño del canvas
 canvas.width = 448
 canvas.height = 400
+
 /* Variables de nuestro juego */
-let counter = 0
+let score = 0;
+let lives = 3;
+let time = 0; // Tiempo en segundos
+let destroyedBricks = 0; // Contador de ladrillos destruidos
+
+function updateGameInfo() {
+    document.getElementById('score-value').innerText = score;
+    document.getElementById('lives-value').innerText = lives;
+    document.getElementById('time-value').innerText = formatTime(time);
+}
+
+function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
+// Lógica para actualizar el tiempo, el puntaje y las vidas en tu juego
+setInterval(() => {
+    time++;
+    updateGameInfo();
+}, 1000);
+
+
 
 /*Variables de la Pelota */
 const ballRadius = 3;
@@ -24,7 +52,7 @@ let dx = -3
 let dy = -3
 
 /*variables de la Paleta*/
-const PADDLE_SENSITITIVITY = 5 // sensibilidad del paddle
+let PADDLE_SENSITITIVITY = 5 // sensibilidad del paddle
 
 const paddleHeight = 10;
 const paddleWidth = 50;
@@ -62,12 +90,14 @@ for (let c = 0; c < brickColumnCount; c++) {
         //guardamos la info de cada ladrillo
         bricks[c][r] = {
             x: brickX,
-             y: brickY,
-             status: BRICK_STATUS.ACTIVE,
-             color: random
+            y: brickY,
+            status: BRICK_STATUS.ACTIVE,
+            color: random
         }
     }
 }
+
+
 
 
 function drawBall () {
@@ -104,6 +134,7 @@ function drawPaddle (){
     )
 
 }
+
 
 function drawBricks (){
     for (let c = 0; c < brickColumnCount; c++) {
@@ -149,30 +180,42 @@ function drawUI() {
     ctx.fillText(`FPS: ${framesPerSec}`, 5, 10)
   }
 
-function collisionDetection (){
+  function collisionDetection() {
     for (let c = 0; c < brickColumnCount; c++) {
-        for ( let r = 0; r < brickRowCount; r++){
-            const currentBrick = bricks[c][r]
+        for (let r = 0; r < brickRowCount; r++) {
+            const currentBrick = bricks[c][r];
             if (currentBrick.status === BRICK_STATUS.DESTROYED) continue;
 
             // Tener en cuenta el radio de la pelota en las comparaciones
-            const issBallSameXAsBrick =
+            const isBallSameXAsBrick =
                 x + ballRadius > currentBrick.x &&
                 x - ballRadius < currentBrick.x + brickWidth;
 
-            const issBallSameYAsBrick =
+            const isBallSameYAsBrick =
                 y + ballRadius > currentBrick.y &&
                 y - ballRadius < currentBrick.y + brickHeight;
 
-            if ( issBallSameXAsBrick && issBallSameYAsBrick){
-                dy = -dy
-                currentBrick.status = BRICK_STATUS.DESTROYED
-            }
-        
-        }
+            if (isBallSameXAsBrick && isBallSameYAsBrick) {
+                dy = -dy; // Rebota la pelota
+                currentBrick.status = BRICK_STATUS.DESTROYED; // Marca el ladrillo como destruido
+                score += 10; // Suma puntos por destruir el ladrillo
+                destroyedBricks++; // Aumenta el contador de ladrillos destruidos
+                updateGameInfo(); // Actualiza la información en pantalla
 
-    }    
+                // Aumentar la dificultad después de destruir un ladrillo
+                if (destroyedBricks % 5 === 0) { // Cada 5 ladrillos aumenta la dificultad
+                    dx *= 1.5; // Aumenta la velocidad de la pelota
+                    dy *= 1.5; 
+                    PADDLE_SENSITITIVITY *= 1.05; // Aumentar la sensibilidad del paddle
+                    console.log(`Paddle Speed Increased: ${PADDLE_SENSITITIVITY}`);
+
+                   
+                }                
+            }
+        }
+    }
 }
+
 
 function ballMovement (){
     // rebotar las pelotas en los laterales
@@ -186,41 +229,79 @@ function ballMovement (){
     //rebotar en la parte de arriba
 
     if ( y + dy < ballRadius) {
-        dy = -dy 
+        dy = -dy;        
+    } else if (y + dy > paddLeY + paddleHeight) {
+        lives--;
+        updateGameInfo();
+        if (lives === 0) {
+            gameOver = true;
+            alert('Game Over');
+            document.location.reload();
+        } else {
+            resetGame(); // Restablecer el juego cuando la pelota cae pero aún hay vidas
+        }
     }
 
-    //la pelota toca la pala
-    const issBallSameXAsPaddle =
-    x > paddLeX &&
-    x < paddLeX + paddleWidth
 
-    const issBallTouchingPaddle = 
-    y + dy > paddLeY;
+    // La pelota toca la paleta
+    const isBallSameXAsPaddle =
+        x > paddLeX &&
+        x < paddLeX + paddleWidth;
 
+    const isBallTouchingPaddle =
+        y + dy > paddLeY;
 
-    if( issBallTouchingPaddle && issBallSameXAsPaddle ) {
-        dy = -dy // cambiamos la direccion de la pelota 
-    }  else if ( // la pelota toca el suelo
-         y + dy > canvas.height - ballRadius || y + dy > paddLeY + paddleHeight
-        ) {
-        gameOver = true
-        console.log('Game Over')
-        document.location.reload()
+    if (isBallTouchingPaddle && isBallSameXAsPaddle) {
+        // Calcular el punto de impacto en la paleta
+        const impactPoint = (x - paddLeX) / paddleWidth;
+        const angle = (impactPoint - 0.5) * Math.PI / 3; // Ajusta el ángulo según el impacto
 
-        //resetGame();
+        // Cambiar la dirección de la pelota
+        dx = 3 * Math.sin(angle);
+        dy = -3 * Math.cos(angle);
+    } else if (y + dy > canvas.height - ballRadius || y + dy > paddLeY + paddleHeight) {
+        // Verificar si la pelota cae por debajo del canvas o de la paleta
+        gameOver = true;
+        console.log('Game Over');
+        document.location.reload();
     }
 
-    //mover la pelota
-    x += dx    
-    y += dy
+    // Mover la pelota
+    x += dx;
+    y += dy;
 }
 
 function paddleMovement (){
+
+    document.addEventListener('touchmove', onTouchMove, { passive: true });
+    document.addEventListener('touchend', onEnd, { passive: true });
+
+
     if (rightPressed && paddLeX < canvas.width - paddleWidth){
         paddLeX += PADDLE_SENSITITIVITY
     } else if (leftPressed && paddLeX > 0){
         paddLeX -= PADDLE_SENSITITIVITY
     }   
+
+    // Mueve el paddle según la posición del dedo
+    function onTouchMove(event) {
+        const touch = event.touches[0]; // Tomar el primer toque (si hay más de uno)
+        const touchX = touch.clientX - canvas.offsetLeft; // Obtener la coordenada X del toque, relativa al canvas
+    
+    // Mover el paddle según la posición del toque
+    paddLeX = touchX - paddleWidth / 2;
+
+    // Evitar que el paddle se salga del canvas
+    if (paddLeX < 0) paddLeX = 0;
+    if (paddLeX > canvas.width - paddleWidth) paddLeX = canvas.width - paddleWidth;
+}
+
+// Si el dedo se levanta o termina el toque
+    function onEnd() {
+        rightPressed = false;
+        leftPressed = false;
+}
+
 }
 
 
@@ -302,6 +383,7 @@ function draw (){
     cleanCanvas()
     //aqui haremos tus dibujos y checks de colisiones
     //dibujar los elemeentos
+
     drawBall()
     drawPaddle()
     drawBricks()

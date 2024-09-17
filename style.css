@@ -1,4 +1,4 @@
-body {
+/*body {
     background-color: #111;
 }
 canvas{
@@ -8,3 +8,54 @@ canvas{
     margin: 0 auto;
     display: block;
 }
+
+*/
+
+body {
+    background-color: #111;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.game-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    width: 100%;
+}
+
+canvas {
+    border: 4px solid #fff;
+    border-bottom: transparent;
+    background: url(Photos/bkg.png) repeat;
+}
+
+.game-info {
+    background-color: #333;
+    color: white;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+    border-radius: 10px;
+    margin-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+    min-width: 150px;
+}
+
+.score, .lives, .time {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.score span, .lives span, .time span {
+    color: cyan;
+}
+
+
